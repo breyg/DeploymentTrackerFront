@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, CheckCircle, Clock, AlertCircle, Plus, Edit, Eye, Trash2, X, Check, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle, Clock, AlertCircle, Plus, Edit, Eye, Trash2, X, Check, Settings, Rocket, Calendar } from 'lucide-react';
 
 const DeploymentDashboard = () => {
   const [expandedProjects, setExpandedProjects] = useState({});
@@ -8,10 +8,21 @@ const DeploymentDashboard = () => {
   const [showEditComponent, setShowEditComponent] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditChecklist, setShowEditChecklist] = useState(false);
+  const [showEditVersion, setShowEditVersion] = useState(false);
+  const [showAddComponent, setShowAddComponent] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', description: '' });
+  const [newComponent, setNewComponent] = useState({ 
+    name: '', 
+    type: '', 
+    jiraTicket: '',
+    memoryAllocation: '',
+    timeout: '',
+    projectId: null
+  });
   const [editingProject, setEditingProject] = useState(null);
   const [editingComponent, setEditingComponent] = useState(null);
   const [editingChecklist, setEditingChecklist] = useState(null);
+  const [editingVersion, setEditingVersion] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -169,6 +180,81 @@ const DeploymentDashboard = () => {
   };
 
   // FUNCIONES PARA COMPONENTES
+  const addComponent = async () => {
+    if (!newComponent.name.trim() || !newComponent.type.trim()) return;
+
+    try {
+      const payload = {
+					   
+				  
+											 
+		  
+							  
+        name: newComponent.name,
+        type: newComponent.type,
+        jiraTicket: newComponent.jiraTicket || null,
+        memoryAllocation: newComponent.memoryAllocation ? parseInt(newComponent.memoryAllocation) : null,
+        timeout: newComponent.timeout ? parseInt(newComponent.timeout) : null
+      };
+
+      console.log('Sending component payload:', payload);
+      console.log('To endpoint:', `${API_BASE_URL}/components/projects/${newComponent.projectId}`);
+
+      const response = await fetch(`${API_BASE_URL}/components/projects/${newComponent.projectId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('Error response body:', errorText);
+        throw new Error(`Error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('Success response:', responseData);
+
+      // Recargar proyectos para mostrar el nuevo componente
+      await fetchProjects();
+      
+      // Limpiar formulario y cerrar modal
+      setNewComponent({ 
+        name: '', 
+        type: '', 
+        jiraTicket: '',
+        memoryAllocation: '',
+        timeout: '',
+        projectId: null
+      });
+      setShowAddComponent(false);
+    } catch (err) {
+      console.error('Full error details:', err);
+      setError(`Error creating component: ${err.message}`);
+													  
+    }
+  };
+
+  const openAddComponent = (projectId) => {
+    console.log('Opening add component for project ID:', projectId);
+    console.log('Available projects:', projects.map(p => ({ id: p.id, name: p.name })));
+    
+    setNewComponent({ 
+      name: '', 
+      type: '', 
+      jiraTicket: '',
+      memoryAllocation: '',
+      timeout: '',
+      projectId: projectId
+    });
+    setShowAddComponent(true);
+  };
+
   const editComponent = async () => {
     if (!editingComponent?.name.trim()) return;
 
@@ -189,16 +275,16 @@ const DeploymentDashboard = () => {
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
 
-													 
-	  
+  
+   
       // Recargar proyectos para obtener los datos actualizados
       await fetchProjects();
-				   
-													
-																   
-		 
-		   
       
+ 
+															   
+   
+  
+   
       setEditingComponent(null);
       setShowEditComponent(false);
     } catch (err) {
@@ -219,11 +305,11 @@ const DeploymentDashboard = () => {
 
       // Recargar proyectos para obtener los datos actualizados
       await fetchProjects();
-				   
-																				
-																								
-		   
       
+																		 
+																		 
+  
+   
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
     } catch (err) {
@@ -232,7 +318,98 @@ const DeploymentDashboard = () => {
     }
   };
 
-  // FUNCIONES PARA CHECKLISTS
+  // FUNCIONES PARA VERSIONES Y DESPLIEGUES
+  const openEditVersion = (component, environment, version, e) => {
+    e.stopPropagation();
+    setEditingVersion({
+      componentId: component.id,
+      componentName: component.name,
+      environment: environment,
+      version: version?.version || '',
+      status: version?.status || 'pending',
+      lastDeploy: version?.lastDeploy || '',
+      deployedBy: version?.deployedBy || ''
+    });
+    setShowEditVersion(true);
+  };
+
+  const updateComponentVersion = async () => {
+    if (!editingVersion?.version.trim()) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/components/${editingVersion.componentId}/versions`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          environment: editingVersion.environment,
+          version: editingVersion.version,
+          status: editingVersion.status,
+          deployedBy: editingVersion.deployedBy || 'system'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      // Recargar proyectos para obtener los datos actualizados
+      await fetchProjects();
+      
+      setEditingVersion(null);
+      setShowEditVersion(false);
+    } catch (err) {
+      setError(`Error updating version: ${err.message}`);
+      console.error('Error updating version:', err);
+    }
+  };
+
+  const quickDeployToEnvironment = async (componentId, environment, version) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/components/${componentId}/deploy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          environment: environment,
+          version: version,
+          deployedBy: 'system' // TODO: Get from auth context
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      // Actualizar el estado local
+      setProjects(projects.map(project => ({
+        ...project,
+        components: project.components?.map(component => {
+          if (component.id === componentId) {
+            return {
+              ...component,
+              versions: {
+                ...component.versions,
+                [environment]: {
+                  ...component.versions[environment],
+                  status: 'deployed',
+                  lastDeploy: new Date().toISOString().split('T')[0]
+                }
+              }
+            };
+          }
+          return component;
+        })
+      })));
+    } catch (err) {
+      setError(`Error deploying: ${err.message}`);
+      console.error('Error deploying:', err);
+    }
+  };
+
+  // FUNCIONES PARA CHECKLISTS (existentes)...
   const toggleChecklistItem = async (componentId, itemId, currentStatus) => {
     try {
       const response = await fetch(`${API_BASE_URL}/checklist-items/${itemId}`, {
@@ -376,7 +553,46 @@ const DeploymentDashboard = () => {
     }
   };
 
-  // Función para calcular progreso del checklist
+  // Función para obtener estilos por ambiente
+  const getEnvironmentStyles = (env) => {
+    switch (env.toLowerCase()) {
+      case 'prod':
+        return {
+          card: 'border-red-200 bg-gradient-to-br from-red-50 to-red-100 hover:shadow-lg hover:border-red-300',
+          header: 'text-red-800 font-bold',
+          badge: 'bg-red-600 text-white font-bold',
+          priority: '🔴 PRODUCCIÓN'
+        };
+      case 'uat':
+        return {
+          card: 'border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-md hover:border-orange-300',
+          header: 'text-orange-800 font-semibold',
+          badge: 'bg-orange-600 text-white font-semibold',
+          priority: '🟠 PRE-PROD'
+        };
+      case 'qa':
+        return {
+          card: 'border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-sm hover:border-blue-300',
+          header: 'text-blue-700 font-medium',
+          badge: 'bg-blue-500 text-white',
+          priority: '🔵 TESTING'
+        };
+      case 'dev':
+        return {
+          card: 'border-green-200 bg-gradient-to-br from-green-50 to-green-100 hover:shadow-sm hover:border-green-300',
+          header: 'text-green-700 font-medium',
+          badge: 'bg-green-500 text-white',
+          priority: '🟢 DESARROLLO'
+        };
+      default:
+        return {
+          card: 'border-gray-200 bg-white hover:shadow-md',
+          header: 'text-gray-700',
+          badge: 'bg-gray-500 text-white',
+          priority: ''
+        };
+    }
+  };
   const getChecklistProgress = (checklist) => {
     if (!checklist || checklist.length === 0) return { completed: 0, total: 0, percentage: 0 };
     
@@ -426,6 +642,127 @@ const DeploymentDashboard = () => {
           <p className="text-gray-600">Gestión de componentes AWS por ambiente</p>
         </div>
 
+        {/* DASHBOARD SUMMARY */}
+        {!loading && (
+          <div className="mb-8">
+            {(() => {
+              const metrics = getDashboardMetrics();
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                  {/* Totales Generales */}
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="flex items-center">
+                      <div className="p-3 rounded-full bg-blue-100">
+                        <div className="w-6 h-6 text-blue-600">📊</div>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total General</p>
+                        <div className="flex items-center gap-4 mt-1">
+                          <div>
+                            <p className="text-2xl font-bold text-gray-900">{metrics.totalProjects}</p>
+                            <p className="text-xs text-gray-500">Proyectos</p>
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold text-gray-900">{metrics.totalComponents}</p>
+                            <p className="text-xs text-gray-500">Componentes</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estado Producción */}
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="flex items-center">
+                      <div className="p-3 rounded-full bg-red-100">
+                        <div className="w-6 h-6 text-red-600">🔴</div>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Producción</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-2xl font-bold text-green-600">{metrics.envStats.prod.deployed}</span>
+                          <span className="text-sm text-gray-500">de {metrics.envStats.prod.total}</span>
+                        </div>
+                        <div className="flex gap-1 mt-2">
+                          {metrics.envStats.prod.failed > 0 && (
+                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                              {metrics.envStats.prod.failed} fallidos
+                            </span>
+                          )}
+                          {metrics.envStats.prod.inprogress > 0 && (
+                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                              {metrics.envStats.prod.inprogress} en progreso
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progreso Checklists */}
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="flex items-center">
+                      <div className="p-3 rounded-full bg-green-100">
+                        <div className="w-6 h-6 text-green-600">✅</div>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Checklists</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-2xl font-bold text-gray-900">{metrics.checklistStats.completionPercentage}%</span>
+                          <span className="text-sm text-gray-500">completado</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {metrics.checklistStats.completedChecklistItems} de {metrics.checklistStats.totalChecklistItems} items
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estado por Ambientes */}
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="flex items-center mb-3">
+                      <div className="p-3 rounded-full bg-purple-100">
+                        <div className="w-6 h-6 text-purple-600">🌐</div>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Todos los Ambientes</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {Object.entries(metrics.envStats).map(([env, stats]) => {
+                        const envStyles = getEnvironmentStyles(env);
+                        const deployedPercentage = stats.total > 0 ? Math.round((stats.deployed / stats.total) * 100) : 0;
+                        return (
+                          <div key={env} className="flex items-center justify-between">
+                            <span className={`text-xs font-medium uppercase ${envStyles.header}`}>
+                              {env}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className={`h-2 rounded-full ${
+                                    env === 'prod' ? 'bg-red-500' : 
+                                    env === 'uat' ? 'bg-orange-500' : 
+                                    env === 'qa' ? 'bg-blue-500' : 'bg-green-500'
+                                  }`}
+                                  style={{ width: `${deployedPercentage}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs text-gray-600">
+                                {stats.deployed}/{stats.total}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         <div className="mb-6">
           <button
             onClick={() => setShowAddProject(true)}
@@ -463,6 +800,132 @@ const DeploymentDashboard = () => {
                 </button>
                 <button
                   onClick={() => setShowAddProject(false)}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL AGREGAR COMPONENTE */}
+        {showAddComponent && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-[500px]">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Agregar Componente</h2>
+                <button
+                  onClick={() => setShowAddComponent(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Nombre del componente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre del Componente *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ej: Payment API, Email Service, Frontend App"
+                    value={newComponent.name}
+                    onChange={(e) => setNewComponent({...newComponent, name: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                {/* Tipo */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Componente *
+                  </label>
+                  <select
+                    value={newComponent.type}
+                    onChange={(e) => setNewComponent({...newComponent, type: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="">Seleccionar tipo</option>
+                    <option value="API">API</option>
+                    <option value="Frontend">Frontend</option>
+                    <option value="Database">Database</option>
+                    <option value="Service">Service</option>
+                    <option value="Lambda">Lambda</option>
+                    <option value="S3">S3</option>
+                    <option value="CloudFront">CloudFront</option>
+                    <option value="ECS">ECS</option>
+                    <option value="RDS">RDS</option>
+                  </select>
+                </div>
+
+                {/* Ticket de Jira */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ticket de Jira
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ej: PROJ-123, TASK-456"
+                    value={newComponent.jiraTicket}
+                    onChange={(e) => setNewComponent({...newComponent, jiraTicket: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                {/* Configuraciones adicionales */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Memoria (MB)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="512"
+                      value={newComponent.memoryAllocation}
+                      onChange={(e) => setNewComponent({...newComponent, memoryAllocation: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Timeout (s)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="30"
+                      value={newComponent.timeout}
+                      onChange={(e) => setNewComponent({...newComponent, timeout: e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Información */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium mb-1">ℹ️ Información</p>
+                    <p>• Los campos marcados con * son obligatorios</p>
+                    <p>• Las configuraciones de memoria y timeout son opcionales</p>
+                    <p>• Podrás configurar versiones y checklists después de crear el componente</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={addComponent}
+                  disabled={!newComponent.name.trim() || !newComponent.type.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Crear Componente
+                </button>
+                <button
+                  onClick={() => setShowAddComponent(false)}
                   className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg"
                 >
                   Cancelar
@@ -601,6 +1064,114 @@ const DeploymentDashboard = () => {
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL EDITAR VERSION */}
+        {showEditVersion && editingVersion && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-[500px]">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">
+                  Editar Versión - {editingVersion.componentName}
+                </h2>
+                <button
+                  onClick={() => setShowEditVersion(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Ambiente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ambiente
+                  </label>
+                  <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 uppercase">
+                    {editingVersion.environment}
+                  </div>
+                </div>
+
+                {/* Versión */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Versión *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ej: v1.2.3, 1.0.0, latest"
+                    value={editingVersion.version}
+                    onChange={(e) => setEditingVersion({...editingVersion, version: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 font-mono"
+                  />
+                </div>
+
+                {/* Estado */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Estado del Despliegue
+                  </label>
+                  <select
+                    value={editingVersion.status}
+                    onChange={(e) => setEditingVersion({...editingVersion, status: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="pending">Pendiente</option>
+                    <option value="inprogress">En Progreso</option>
+                    <option value="deployed">Desplegado</option>
+                    <option value="failed">Fallido</option>
+                  </select>
+                </div>
+
+                {/* Usuario que desplegó */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Desplegado por
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Usuario o sistema"
+                    value={editingVersion.deployedBy}
+                    onChange={(e) => setEditingVersion({...editingVersion, deployedBy: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                {/* Información adicional */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-sm text-blue-800">
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-medium">Información de Despliegue</span>
+                  </div>
+                  <div className="mt-2 text-xs text-blue-700">
+                    {editingVersion.status === 'deployed' ? (
+                      <p>✅ Al marcar como "Desplegado", se actualizará automáticamente la fecha de último despliegue</p>
+                    ) : (
+                      <p>📝 La fecha de último despliegue solo se actualiza cuando el estado es "Desplegado"</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={updateComponentVersion}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  Guardar Cambios
+                </button>
+                <button
+                  onClick={() => setShowEditVersion(false)}
                   className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg"
                 >
                   Cancelar
@@ -775,6 +1346,17 @@ const DeploymentDashboard = () => {
 
                 {expandedProjects[project.id] && (
                   <div className="p-4">
+                    {/* Botón para agregar componente */}
+                    <div className="mb-4">
+                      <button
+                        onClick={() => openAddComponent(project.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Agregar Componente
+                      </button>
+                    </div>
+
                     {project.components && project.components.length > 0 ? (
                       project.components.map(component => (
                         <div key={component.id} className="mb-6 last:mb-0 bg-gray-50 rounded-lg p-4">
@@ -819,22 +1401,78 @@ const DeploymentDashboard = () => {
                           <div className="grid grid-cols-4 gap-4 mb-4">
                             {['dev', 'qa', 'uat', 'prod'].map(env => {
                               const version = component.versions && component.versions[env];
+                              const envStyles = getEnvironmentStyles(env);
+                              
                               return (
-                                <div key={env} className="border rounded-lg p-3 bg-white">
+                                <div key={env} className={`border rounded-lg p-3 transition-all duration-200 ${envStyles.card}`}>
                                   <div className="flex items-center justify-between mb-2">
-                                    <h4 className="font-medium text-sm text-gray-700 uppercase">{env}</h4>
-                                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(version?.status)}`}>
-                                      {getStatusIcon(version?.status)}
-                                      {formatStatusText(version?.status)}
+                                    <div className="flex flex-col">
+                                      <h4 className={`text-sm uppercase tracking-wide ${envStyles.header}`}>
+                                        {env}
+                                      </h4>
+                                      <span className="text-xs text-gray-600 font-medium">
+                                        {envStyles.priority}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(version?.status)}`}>
+                                        {getStatusIcon(version?.status)}
+                                        {formatStatusText(version?.status)}
+                                      </div>
+                                      <button
+                                        onClick={(e) => openEditVersion(component, env, version, e)}
+                                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                        title="Editar versión"
+                                      >
+                                        <Edit className="w-3 h-3" />
+                                      </button>
                                     </div>
                                   </div>
-                                  <p className="text-sm font-mono text-gray-600">
-                                    {version?.version || 'No deployed'}
-                                  </p>
-                                  {version?.lastDeploy && (
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      {version.lastDeploy}
+                                  
+                                  <div className="space-y-2">
+                                    <p className="text-sm font-mono text-gray-700 font-medium">
+                                      {version?.version || 'No deployed'}
                                     </p>
+                                    
+                                    {version?.lastDeploy && (
+                                      <p className="text-xs text-gray-600 flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {version.lastDeploy}
+                                      </p>
+                                    )}
+                                    
+                                    {version?.deployedBy && (
+                                      <p className="text-xs text-gray-600">
+                                        por {version.deployedBy}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Botón de despliegue rápido */}
+                                  {version?.version && version.status !== 'deployed' && (
+                                    <button
+                                      onClick={() => quickDeployToEnvironment(component.id, env, version.version)}
+                                      className={`mt-3 w-full text-white text-xs py-2 px-2 rounded flex items-center justify-center gap-1 transition-colors ${
+                                        env === 'prod' 
+                                          ? 'bg-red-600 hover:bg-red-700 font-bold' 
+                                          : env === 'uat'
+                                          ? 'bg-orange-600 hover:bg-orange-700 font-semibold'
+                                          : 'bg-green-600 hover:bg-green-700'
+                                      }`}
+                                      title="Marcar como desplegado"
+                                    >
+                                      <Rocket className="w-3 h-3" />
+                                      {env === 'prod' ? 'DEPLOY PROD' : 'Desplegar'}
+                                    </button>
+                                  )}
+
+                                  {/* Indicador especial para PROD */}
+                                  {env === 'prod' && version?.status === 'deployed' && (
+                                    <div className="mt-2 flex items-center justify-center">
+                                      <span className="text-xs bg-red-600 text-white px-2 py-1 rounded-full font-bold">
+                                        ✅ LIVE
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               );
@@ -905,7 +1543,7 @@ const DeploymentDashboard = () => {
                                     )}
                                   </div>
                                 ))}
-																																																												 
+																																																		
                               </div>
                             </div>
                           )}
