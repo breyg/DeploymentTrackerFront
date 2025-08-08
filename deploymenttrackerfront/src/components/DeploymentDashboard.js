@@ -185,11 +185,6 @@ const DeploymentDashboard = () => {
 
     try {
       const payload = {
-					   
-				  
-											 
-		  
-							  
         name: newComponent.name,
         type: newComponent.type,
         jiraTicket: newComponent.jiraTicket || null,
@@ -236,7 +231,6 @@ const DeploymentDashboard = () => {
     } catch (err) {
       console.error('Full error details:', err);
       setError(`Error creating component: ${err.message}`);
-													  
     }
   };
 
@@ -275,16 +269,9 @@ const DeploymentDashboard = () => {
         throw new Error(`Error: ${response.status} ${response.statusText}`);
       }
 
-  
-   
       // Recargar proyectos para obtener los datos actualizados
       await fetchProjects();
       
- 
-															   
-   
-  
-   
       setEditingComponent(null);
       setShowEditComponent(false);
     } catch (err) {
@@ -306,10 +293,6 @@ const DeploymentDashboard = () => {
       // Recargar proyectos para obtener los datos actualizados
       await fetchProjects();
       
-																		 
-																		 
-  
-   
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
     } catch (err) {
@@ -641,127 +624,6 @@ const DeploymentDashboard = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">DeploymentTracker</h1>
           <p className="text-gray-600">Gestión de componentes AWS por ambiente</p>
         </div>
-
-        {/* DASHBOARD SUMMARY */}
-        {!loading && (
-          <div className="mb-8">
-            {(() => {
-              const metrics = getDashboardMetrics();
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                  {/* Totales Generales */}
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-blue-100">
-                        <div className="w-6 h-6 text-blue-600">📊</div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total General</p>
-                        <div className="flex items-center gap-4 mt-1">
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900">{metrics.totalProjects}</p>
-                            <p className="text-xs text-gray-500">Proyectos</p>
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold text-gray-900">{metrics.totalComponents}</p>
-                            <p className="text-xs text-gray-500">Componentes</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Estado Producción */}
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-red-100">
-                        <div className="w-6 h-6 text-red-600">🔴</div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Producción</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-2xl font-bold text-green-600">{metrics.envStats.prod.deployed}</span>
-                          <span className="text-sm text-gray-500">de {metrics.envStats.prod.total}</span>
-                        </div>
-                        <div className="flex gap-1 mt-2">
-                          {metrics.envStats.prod.failed > 0 && (
-                            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                              {metrics.envStats.prod.failed} fallidos
-                            </span>
-                          )}
-                          {metrics.envStats.prod.inprogress > 0 && (
-                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                              {metrics.envStats.prod.inprogress} en progreso
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Progreso Checklists */}
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="flex items-center">
-                      <div className="p-3 rounded-full bg-green-100">
-                        <div className="w-6 h-6 text-green-600">✅</div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Checklists</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-2xl font-bold text-gray-900">{metrics.checklistStats.completionPercentage}%</span>
-                          <span className="text-sm text-gray-500">completado</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {metrics.checklistStats.completedChecklistItems} de {metrics.checklistStats.totalChecklistItems} items
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Estado por Ambientes */}
-                  <div className="bg-white rounded-lg shadow-sm border p-6">
-                    <div className="flex items-center mb-3">
-                      <div className="p-3 rounded-full bg-purple-100">
-                        <div className="w-6 h-6 text-purple-600">🌐</div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Todos los Ambientes</p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {Object.entries(metrics.envStats).map(([env, stats]) => {
-                        const envStyles = getEnvironmentStyles(env);
-                        const deployedPercentage = stats.total > 0 ? Math.round((stats.deployed / stats.total) * 100) : 0;
-                        return (
-                          <div key={env} className="flex items-center justify-between">
-                            <span className={`text-xs font-medium uppercase ${envStyles.header}`}>
-                              {env}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className={`h-2 rounded-full ${
-                                    env === 'prod' ? 'bg-red-500' : 
-                                    env === 'uat' ? 'bg-orange-500' : 
-                                    env === 'qa' ? 'bg-blue-500' : 'bg-green-500'
-                                  }`}
-                                  style={{ width: `${deployedPercentage}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-xs text-gray-600">
-                                {stats.deployed}/{stats.total}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
 
         <div className="mb-6">
           <button
@@ -1543,7 +1405,6 @@ const DeploymentDashboard = () => {
                                     )}
                                   </div>
                                 ))}
-																																																		
                               </div>
                             </div>
                           )}
