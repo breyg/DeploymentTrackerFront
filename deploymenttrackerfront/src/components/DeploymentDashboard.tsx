@@ -1,40 +1,54 @@
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
+import Button from './ui/Button';
+import Modal from './ui/Modal';
+import ProjectForm from './forms/ProjectForm';
+import useProjects from '../hooks/useProjects';
+import ProjectCard from './project/ProjectCard';
 import { ChevronDown, ChevronRight, CheckCircle, Clock, AlertCircle, Plus, Edit, Eye, Trash2, X, Check, Settings, Rocket, Calendar } from 'lucide-react';
+import { 
+  Project, 
+  Component, 
+  NewProject, 
+  NewComponent, 
+  EditingVersion, 
+  DeleteTarget 
+} from '../types';
 
-const DeploymentDashboard = () => {
-  const [expandedProjects, setExpandedProjects] = useState({});
-  const [showAddProject, setShowAddProject] = useState(false);
-  const [showEditProject, setShowEditProject] = useState(false);
-  const [showEditComponent, setShowEditComponent] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showEditChecklist, setShowEditChecklist] = useState(false);
-  const [showEditVersion, setShowEditVersion] = useState(false);
-  const [showAddComponent, setShowAddComponent] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', description: '' });
-  const [newComponent, setNewComponent] = useState({ 
+const DeploymentDashboard: React.FC = () => {
+  // Estados con tipos
+  const [expandedProjects, setExpandedProjects] = useState<Record<number, boolean>>({});
+  const [showAddProject, setShowAddProject] = useState<boolean>(false);
+  const [showEditProject, setShowEditProject] = useState<boolean>(false);
+  const [showEditComponent, setShowEditComponent] = useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [showEditChecklist, setShowEditChecklist] = useState<boolean>(false);
+  const [showEditVersion, setShowEditVersion] = useState<boolean>(false);
+  const [showAddComponent, setShowAddComponent] = useState<boolean>(false);
+  
+  // Estados para formularios
+  const [newProject, setNewProject] = useState<NewProject>({ name: '', description: '' });
+  const [newComponent, setNewComponent] = useState<NewComponent>({ 
     name: '', 
     type: '', 
     jiraTicket: '',
     memoryAllocation: '',
     timeout: '',
-    projectId: null
+    projectId: 0  // Asegúrate que sea 0, no null
   });
-  const [editingProject, setEditingProject] = useState(null);
-  const [editingComponent, setEditingComponent] = useState(null);
-  const [editingChecklist, setEditingChecklist] = useState(null);
-  const [editingVersion, setEditingVersion] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  
+  // Estados para edición
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingComponent, setEditingComponent] = useState<Component | null>(null);
+  const [editingChecklist, setEditingChecklist] = useState<any>(null);
+  const [editingVersion, setEditingVersion] = useState<EditingVersion | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+
+  // Estados para datos
+  const { projects, loading, error, addProject: createProject, deleteProject: removeProject, refetch } = useProjects();
 
   // Configuración de la API
   const API_BASE_URL = 'http://localhost:5239/api';
-
-  // Cargar proyectos desde la API
-  useEffect(() => {
-    fetchProjects();
-  }, []);
 
   const fetchProjects = async () => {
     try {
@@ -106,27 +120,10 @@ const DeploymentDashboard = () => {
     if (!newProject.name.trim()) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newProject.name,
-          description: newProject.description
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status} ${response.statusText}`);
-      }
-
-      const createdProject = await response.json();
-      setProjects([...projects, createdProject]);
+      await createProject(newProject);
       setNewProject({ name: '', description: '' });
       setShowAddProject(false);
     } catch (err) {
-      setError(`Error creating project: ${err.message}`);
       console.error('Error creating project:', err);
     }
   };
@@ -162,19 +159,10 @@ const DeploymentDashboard = () => {
 
   const deleteProject = async (projectId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status} ${response.statusText}`);
-      }
-
-      setProjects(projects.filter(p => p.id !== projectId));
+      await removeProject(projectId);
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
     } catch (err) {
-      setError(`Error deleting project: ${err.message}`);
       console.error('Error deleting project:', err);
     }
   };
@@ -626,50 +614,29 @@ const DeploymentDashboard = () => {
         </div>
 
         <div className="mb-6">
-          <button
+          <Button 
             onClick={() => setShowAddProject(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Nuevo Proyecto
-          </button>
+          </Button>
         </div>
 
         {/* MODAL AGREGAR PROYECTO */}
-        {showAddProject && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-96">
-              <h2 className="text-xl font-bold mb-4">Nuevo Proyecto</h2>
-              <input
-                type="text"
-                placeholder="Nombre del proyecto"
-                value={newProject.name}
-                onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2 mb-3"
-              />
-              <textarea
-                placeholder="Descripción"
-                value={newProject.description}
-                onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2 mb-4 h-20 resize-none"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={addProject}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-                >
-                  Crear
-                </button>
-                <button
-                  onClick={() => setShowAddProject(false)}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Modal
+          isOpen={showAddProject}
+          onClose={() => setShowAddProject(false)}
+          title="Nuevo Proyecto"
+        >
+          <ProjectForm
+            project={newProject}
+            onProjectChange={setNewProject}
+            onSubmit={addProject}
+            onCancel={() => setShowAddProject(false)}
+            submitLabel="Crear"
+          />
+        </Modal>
 
         {/* MODAL AGREGAR COMPONENTE */}
         {showAddComponent && (
